@@ -3,7 +3,7 @@ import numpy as np
 
 cap = cv2.VideoCapture('./dataset1/hw4_dataset1.mp4')
 
-def pretreat(frame_num):
+def pretreat(kpdetector, frame_num):
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
     ret, cur_frame = cap.read() 
     if ret == False:
@@ -13,15 +13,15 @@ def pretreat(frame_num):
     kp = kpdetector.detect(gray,None)
     return cur_frame, kpdetector.compute(gray,kp)[1], kp
 
-def calc_transfrom(bf, pre_dt, cur_dt, T):
+def calc_transfrom(bf, pre_dt, cur_dt, pre_kp, cur_kp, T):
     matches = bf.match(cur_dt, pre_dt)
     matches = sorted(matches, key = lambda x:x.distance)
             
     src = []
     dst = []
     for m in matches:
-        src.append(kp2[m.queryIdx].pt + (1,))
-        dst.append(pre_kp_right[m.trainIdx].pt + (1,))
+        src.append(cur_kp[m.queryIdx].pt + (1,))
+        dst.append(pre_kp[m.trainIdx].pt + (1,))
         
     src = np.array(src,dtype=np.float)
     dst = np.array(dst,dtype=np.float)
@@ -42,11 +42,12 @@ def show_image(result, count):
 
     cv2.imshow('stitched image',disp.astype(np.uint8))
 
-def stitch(cur_frame, result, ones, t_count, T):
+def stitch(cur_frame, result, ones, count, T):
     warp_img = cv2.warpPerspective(cur_frame,T,(result.shape[1],result.shape[0])).astype(np.float)
     t_count  = cv2.warpPerspective(ones,T,(result.shape[1],result.shape[0])).astype(np.float)
     result += warp_img
     count = t_count.astype(np.float) + count
+    return count
 
 def main():
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -66,7 +67,7 @@ def main():
     while middle_frame + frame_count < total_frame:
         if frame_count == 0:
             # init
-            cur_frame, pre_dt_left, pre_kp_left = pretreat(middle_frame)
+            cur_frame, pre_dt_left, pre_kp_left = pretreat(kpdetector, middle_frame)
             pre_kp_right = pre_kp_left
             pre_dt_right = pre_dt_left
 
@@ -78,25 +79,25 @@ def main():
             T_left[1,2] = 0
             T_right = T_left
             # stitch
-            stitch(cur_frame, result, ones, count, T_left)
+            count = stitch(cur_frame, result, ones, count, T_left)
             show_image(result, count)
 
         else:
             # stitch left
-            cur_frame, dt2, kp2 = pretreat(middle_frame + frame_count)
+            cur_frame, dt2, kp2 = pretreat(kpdetector, middle_frame + frame_count)
             if type(cur_frame) == type(True):
                 break
-            T_right = calc_transfrom(bf, pre_dt_right, dt2)
-            stitch(cur_frame, result, ones, count, T_right)
+            T_right = calc_transfrom(bf, pre_dt_right, dt2, pre_kp_right, kp2, T_right)
+            count = stitch(cur_frame, result, ones, count, T_right)
             pre_kp_right = kp2
             pre_dt_right = dt2
 
             # stith right
-            cur_frame, dt2, kp2 = pretreat(middle_frame - frame_count)
+            cur_frame, dt2, kp2 = pretreat(kpdetector, middle_frame - frame_count)
             if type(cur_frame) == type(True):
                 break
-            T_left = calc_transfrom(bf, pre_dt_left, dt2)
-            stitch(cur_frame, result, ones, count, T_left)
+            T_left = calc_transfrom(bf, pre_dt_left, dt2, pre_kp_left, kp2, T_left)
+            count = stitch(cur_frame, result, ones, count, T_left)
             pre_kp_left = kp2
             pre_dt_left = dt2
 
