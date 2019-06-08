@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
+import itertools
 
 path = "./dataset2/DSC_11"
+out = cv2.VideoWriter('./result/exercise2.avi',cv2.VideoWriter_fourcc(*'XVID'), 20.0, 
+                            (3840 // 8 * 3, 2160 // 8 * 3))
+
 def pretreat(kpdetector, image_name): 
     cur_image = cv2.imread(image_name)
     cur_frame = cv2.resize(cur_image,(cur_image.shape[1]//8,cur_image.shape[0]//8))
@@ -37,6 +41,8 @@ def show_image(result, count):
     disp[:,:,2] = result[:,:,2] / t_count
 
     cv2.imshow('stitched image',disp.astype(np.uint8))
+    out.write(disp.astype(np.uint8))
+
 
 def stitch(cur_frame, result, ones, count, T):
     warp_img = cv2.warpPerspective(cur_frame,T,(result.shape[1],result.shape[0])).astype(np.float)
@@ -47,16 +53,19 @@ def stitch(cur_frame, result, ones, count, T):
 
 def main():
     sample_image = cv2.imread(path + "58" + ".JPG")
-    result = np.zeros((2160 // 8 * 3, 3840 // 8 * 3, 3))
-    count = np.zeros((2160 // 8 * 3, 3840 // 8 * 3))
-    ones = np.ones((2160 // 8 , 3840 // 8 ))
+    
 
     # create kpdetector
     kpdetector = cv2.xfeatures2d.SIFT_create() 
 
     # create BFMatcher object
     bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
-    
+
+
+    result = np.zeros((2160 // 8 * 3, 3840 // 8 * 3, 3))
+    count = np.zeros((2160 // 8 * 3, 3840 // 8 * 3))
+    ones = np.ones((2160 // 8 , 3840 // 8 ))
+    frame_count = 0
     for frame_num in range(58, 69):
         if frame_num == 58:
             # init
@@ -71,7 +80,7 @@ def main():
             # stitch
             count = stitch(cur_frame, result, ones, count, T)
             show_image(result, count)
-
+            
         else:
             # stitch
             cur_frame, dt2, kp2 = pretreat(kpdetector, path + str(frame_num) + ".JPG")
@@ -81,16 +90,13 @@ def main():
             count = stitch(cur_frame, result, ones, count, T)
             pre_kp = kp2
             pre_dt = dt2
-
-            # show image
             show_image(result, count)
 
         key = cv2.waitKey(20) & 0xFF
-        if key == 27:
+        if key is 27:
             break
-
-    cv2.waitKey()    
-    cap.release()
+    out.release()
     cv2.destroyAllWindows()
+
 if __name__ == "__main__":
     main()

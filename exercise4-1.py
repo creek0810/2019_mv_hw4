@@ -31,7 +31,7 @@ def calc_transfrom(bf, pre_dt, cur_dt, pre_kp, cur_kp, T):
     T = T.dot(A)
     return T
 
-def show_image(result, count):
+def show_image(result, count, out):
     t_count = count.copy()
     t_count[t_count == 0] = 1
 
@@ -41,6 +41,7 @@ def show_image(result, count):
     disp[:,:,2] = result[:,:,2] / t_count
 
     cv2.imshow('stitched image',disp.astype(np.uint8))
+    out.write(disp.astype(np.uint8))
 
 def stitch(cur_frame, result, ones, count, T):
     warp_img = cv2.warpPerspective(cur_frame,T,(result.shape[1],result.shape[0])).astype(np.float)
@@ -57,7 +58,8 @@ def main():
     result = np.zeros((int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))//4,int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))//4*3,3))
     count  = np.zeros((int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))//4,int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))//4*3))
     ones = np.ones(((int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))//4,int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))//4)))
-    
+    out = cv2.VideoWriter('./result/exercise1.avi',cv2.VideoWriter_fourcc(*'XVID'), 20.0, 
+                            ((int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))//4*3),(int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))//4)))
     # create kpdetector
     kpdetector = cv2.xfeatures2d.SIFT_create() 
 
@@ -80,7 +82,7 @@ def main():
             T_right = T_left
             # stitch
             count = stitch(cur_frame, result, ones, count, T_left)
-            show_image(result, count)
+            show_image(result, count, out)
 
         else:
             # stitch left
@@ -102,7 +104,7 @@ def main():
             pre_dt_left = dt2
 
             # show image
-            show_image(result, count)
+            show_image(result, count, out)
 
         key = cv2.waitKey(20) & 0xFF
         if key == 27:
@@ -111,6 +113,7 @@ def main():
 
     cv2.waitKey()    
     cap.release()
+    out.release()
     cv2.destroyAllWindows()
 if __name__ == "__main__":
     main()
